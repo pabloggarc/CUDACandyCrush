@@ -14,15 +14,20 @@ __global__ void buscar_camino(char* tablero, int fila, int columna) {
     int id = threadIdx.y * N + threadIdx.x; 
     int vecinos[4] = {id - N, id + N, id - 1, id + 1}; //Encima, debajo, izq, dcha
     
+    //Vecino = -1 --> fuera del tablero
+
     if (vecinos[0] < 0) {
-        vecinos[0] = -1; //fuera
+        vecinos[0] = -1;
     }
     if (vecinos[1] < N * M - 1) {
         vecinos[1] = -1; 
     }
-    if(vecinos[2])
-    
-
+    if (id % M == 0) {
+        vecinos[2] = -1; 
+    }
+    if ((id + 1) % M == 0) {
+        vecinos[3] = -1; 
+    }
 }
 
 void cargar_argumentos(int argc, char* argv[]) {
