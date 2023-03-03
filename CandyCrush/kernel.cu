@@ -9,6 +9,22 @@ int M;
 int dificultad; 
 int modo; 
 
+__global__ void buscar_camino(char* tablero, int fila, int columna) {
+    int selec = fila * N + columna; 
+    int id = threadIdx.y * N + threadIdx.x; 
+    int vecinos[4] = {id - N, id + N, id - 1, id + 1}; //Encima, debajo, izq, dcha
+    
+    if (vecinos[0] < 0) {
+        vecinos[0] = -1; //fuera
+    }
+    if (vecinos[1] < N * M - 1) {
+        vecinos[1] = -1; 
+    }
+    if(vecinos[2])
+    
+
+}
+
 void cargar_argumentos(int argc, char* argv[]) {
     if (argc != 5) {
         perror("Se esperaban argumentos -a/-m 1/2 n m. "); 
