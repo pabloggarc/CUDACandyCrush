@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-int N; 
-int M; 
+int N = 10; 
+int M = 5; 
 int dificultad; 
 int modo; 
 
@@ -102,8 +102,8 @@ bool pertenece(int* x, int n, int y) {
 
 void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int x, int* camino, int y) {
     if (inicio == fin) {
-        visitados[x] = inicio; 
-        camino[y] = inicio; 
+        //visitados[x] = fin; 
+        //camino[y] = fin; 
     }
     else {
         //Encima, debajo, izq, dcha
@@ -144,7 +144,7 @@ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int x, in
 
 int main(int argc, char* argv[]){
 
-    cargar_argumentos(argc, argv); 
+    //cargar_argumentos(argc, argv); 
     int tam_tablero = sizeof(char) * N * M; 
     char* tablero = (char*)malloc(tam_tablero);
 
@@ -177,17 +177,6 @@ int main(int argc, char* argv[]){
     //Funcion que busque camino
     int* camino = (int*)malloc(tam_tablero);
     int* visitados = (int*)malloc(tam_tablero);
-
-    for (int i = 0; i < N * M; ++i) {
-        if (i == 0) {
-            camino[0] = selec;
-            visitados[0] = selec; 
-        }
-        else {
-            camino[i] = -1;
-            visitados[i] = -1;
-        }
-    }
 
     if(tablero[id] == tablero[selec])
     buscar_camino(tablero, id, selec, visitados, 0, camino, 0);
