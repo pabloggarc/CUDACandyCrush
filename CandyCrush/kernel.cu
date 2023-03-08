@@ -100,39 +100,34 @@ bool pertenece(int* x, int n, int y) {
     return p;
 }
 
-void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int x, int* camino, int y) {
-    if (inicio == fin) {
-        //visitados[x] = fin; 
-        //camino[y] = fin; 
-    }
-    else {
-        //Encima, debajo, izq, dcha
-        //Vecino = -1 --> fuera del tablero
-        int vecinos[4] = { inicio - M, inicio + M, inicio - 1, inicio + 1 };
-        if (vecinos[0] < 0) {
-            vecinos[0] = -1;
-        }
-        if (vecinos[1] >= N * M) {
+void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y) {
+    if (inicio != fin) {
+        //Encima, debajo, izq, dcha ||||| Vecino = -1 --> fuera del tablero
+        int vecinos[5] = {inicio, inicio - M, inicio + M, inicio - 1, inicio + 1 };
+        if (vecinos[1] < 0) {
             vecinos[1] = -1;
         }
-        if (inicio % M == 0) {
+        if (vecinos[2] >= N * M) {
             vecinos[2] = -1;
         }
-        if ((inicio + 1) % M == 0) {
+        if (inicio % M == 0) {
             vecinos[3] = -1;
         }
+        if ((inicio + 1) % M == 0) {
+            vecinos[4] = -1;
+        }
 
-        for (int i = 0; i < 4; ++i) {
-            if (!pertenece(visitados, x, vecinos[i])) {
+        for (int i = 0; i < 5; ++i) {
+            if (!pertenece(visitados, *x, vecinos[i])) {
                 if (vecinos[i] != -1) {
-                    //Si es vecino se marca como explorado
-                    visitados[x] = vecinos[i];
-                    ++x;
+                    //Se marca como explorado
+                    visitados[*x] = vecinos[i];
+                    (*x)++;
 
                     if (tablero[inicio] == tablero[vecinos[i]]) {
                         //En caso de que el vecino sea del mismo tipo, sigo el camino
-                        camino[y] = vecinos[i];
-                        ++y;
+                        camino[*y] = vecinos[i];
+                        (*y)++;
                         buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y);
                     }
                 }
@@ -178,8 +173,15 @@ int main(int argc, char* argv[]){
     int* camino = (int*)malloc(tam_tablero);
     int* visitados = (int*)malloc(tam_tablero);
 
+    for (int i = 0; i < N * M; i++) {
+        camino[i] = -1; 
+        visitados[i] = -1; 
+    }
+    int x = 0; 
+    int y = 0; 
+
     if(tablero[id] == tablero[selec])
-    buscar_camino(tablero, id, selec, visitados, 0, camino, 0);
+    buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
 
     printf("\nCamino desde %d\n: ", id);
     for (int i = 0; i < N * M; ++i) {
