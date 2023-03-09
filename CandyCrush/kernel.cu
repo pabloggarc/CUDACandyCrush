@@ -10,7 +10,7 @@ int dificultad;
 int modo; 
 
 /*__global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int columna) {
-    int selec = fila * N + columna; 
+    int selec = fila * M + columna; 
     int id = threadIdx.y * N + threadIdx.x; 
 
     //Funcion que busque camino
@@ -121,11 +121,15 @@ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, i
             if (!pertenece(visitados, *x, vecinos[i])) {
                 if (vecinos[i] != -1) {
                     //Se marca como explorado
+
+                    //visitados = (int*)realloc(visitados, sizeof(int) * ((*x) + 1)); 
                     visitados[*x] = vecinos[i];
                     (*x)++;
 
                     if (tablero[inicio] == tablero[vecinos[i]]) {
                         //En caso de que el vecino sea del mismo tipo, sigo el camino
+
+                        //camino = (int*)realloc(camino, sizeof(int) * ((*y) + 1)); 
                         camino[*y] = vecinos[i];
                         (*y)++;
                         buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y);
@@ -170,13 +174,14 @@ int main(int argc, char* argv[]){
     
 
     //Funcion que busque camino
-    int* camino = (int*)malloc(tam_tablero);
-    int* visitados = (int*)malloc(tam_tablero);
+    int* camino = (int*)malloc(sizeof(int) * N * M);
+    int* visitados = (int*)malloc(sizeof(int) * N * M);
 
     for (int i = 0; i < N * M; i++) {
         camino[i] = -1; 
         visitados[i] = -1; 
     }
+
     int x = 0; 
     int y = 0; 
 
@@ -184,14 +189,20 @@ int main(int argc, char* argv[]){
     buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
 
     printf("\nCamino desde %d\n: ", id);
-    for (int i = 0; i < N * M; ++i) {
+    for (int i = 0; i < y; ++i) {
         printf("%d, ", camino[i]);
     }
 
     printf("\nVisitados desde %d\n: ", id);
-    for (int i = 0; i < N * M; ++i) {
+    for (int i = 0; i < x; ++i) {
         printf("%d, ", visitados[i]);
     }
+
+    printf("\nValores de X e Y: (%d, %d)\n", x, y); 
+
+    free(camino); 
+    free(visitados); 
+    free(tablero); 
 
     return 0;
 }
