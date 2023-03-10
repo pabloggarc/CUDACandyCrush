@@ -9,26 +9,73 @@ int M = 5;
 int dificultad; 
 int modo; 
 
-/*__global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int columna) {
+__device__ bool pertenece(int* x, int n, int y) {
+    bool p = false;
+    for (int i = 0; i < n; ++i) {
+        p = p || x[i] == y;
+    }
+    return p;
+}
+
+__device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y, int N, int M) {
+    if (inicio != fin) {
+        //Encima, debajo, izq, dcha ||||| Vecino = -1 --> fuera del tablero
+        int vecinos[5] = { inicio, inicio - M, inicio + M, inicio - 1, inicio + 1 };
+        if (vecinos[1] < 0) {
+            vecinos[1] = -1;
+        }
+        if (vecinos[2] >= N * M) {
+            vecinos[2] = -1;
+        }
+        if (inicio % M == 0) {
+            vecinos[3] = -1;
+        }
+        if ((inicio + 1) % M == 0) {
+            vecinos[4] = -1;
+        }
+
+        for (int i = 0; i < 5; ++i) {
+            if (!pertenece(visitados, *x, vecinos[i])) {
+                if (vecinos[i] != -1) {
+                    //Se marca como explorado
+
+                    visitados[*x] = vecinos[i];
+                    (*x)++;
+
+                    if (tablero[inicio] == tablero[vecinos[i]]) {
+                        //En caso de que el vecino sea del mismo tipo, sigo el camino
+
+                        camino[*y] = vecinos[i];
+                        (*y)++;
+                        buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y, N, M);
+                    }
+                }
+            }
+        }
+    }
+}
+
+__global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int columna) {
     int selec = fila * M + columna; 
     int id = threadIdx.y * N + threadIdx.x; 
 
     //Funcion que busque camino
     int* camino = (int*)malloc(N * M * sizeof(int)); 
     int* visitados = (int*)malloc(N * M * sizeof(int));
+    int x = 0; 
+    int y = 0; 
 
     for (int i = 0; i < N * M; ++i) {
         camino[i] = -1; 
         visitados[i] = -1; 
     }
 
-    buscar_camino(tablero, id, selec, visitados, 0, camino, 0); 
-
-    printf("Camino desde %d\n: ", id); 
-    for (int i = 0; i < N * M; ++i) {
-        printf("%d, ", camino[i]); 
+    if (tablero[selec] == tablero[id]) {
+        buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
     }
-}*/
+    
+    free(visitados); 
+}
 
 void cargar_argumentos(int argc, char* argv[]) {
     if (argc != 5) {
@@ -92,54 +139,6 @@ void mostrar_tablero(char* tablero, int n, int m) {
     }
 }
 
-bool pertenece(int* x, int n, int y) {
-    bool p = false;
-    for (int i = 0; i < n; ++i) {
-        p = p || x[i] == y;
-    }
-    return p;
-}
-
-void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y) {
-    if (inicio != fin) {
-        //Encima, debajo, izq, dcha ||||| Vecino = -1 --> fuera del tablero
-        int vecinos[5] = {inicio, inicio - M, inicio + M, inicio - 1, inicio + 1 };
-        if (vecinos[1] < 0) {
-            vecinos[1] = -1;
-        }
-        if (vecinos[2] >= N * M) {
-            vecinos[2] = -1;
-        }
-        if (inicio % M == 0) {
-            vecinos[3] = -1;
-        }
-        if ((inicio + 1) % M == 0) {
-            vecinos[4] = -1;
-        }
-
-        for (int i = 0; i < 5; ++i) {
-            if (!pertenece(visitados, *x, vecinos[i])) {
-                if (vecinos[i] != -1) {
-                    //Se marca como explorado
-
-                    //visitados = (int*)realloc(visitados, sizeof(int) * ((*x) + 1)); 
-                    visitados[*x] = vecinos[i];
-                    (*x)++;
-
-                    if (tablero[inicio] == tablero[vecinos[i]]) {
-                        //En caso de que el vecino sea del mismo tipo, sigo el camino
-
-                        //camino = (int*)realloc(camino, sizeof(int) * ((*y) + 1)); 
-                        camino[*y] = vecinos[i];
-                        (*y)++;
-                        buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y);
-                    }
-                }
-            }
-        }
-    }
-}
-
 
 int main(int argc, char* argv[]){
 
@@ -153,55 +152,15 @@ int main(int argc, char* argv[]){
         }
     }
 
-    int selec;
-    int id;
-
     mostrar_tablero(tablero, N, M); 
-    printf("Toca elemento: "); 
-    scanf("%d", &selec); 
-    printf("\nSimular que soy el hilo: "); 
-    scanf("%d", &id); 
-    printf("\n"); 
 
-
-    /*char* d_tablero;
+    char* d_tablero;
     cudaMalloc((void**)&d_tablero, sizeof(char) * N * M); 
     cudaMemcpy(d_tablero, tablero, sizeof(char) * N * M, cudaMemcpyHostToDevice); 
 
     dim3 bloque(N, M); 
-    encontrar_caminos<<<1, bloque>>>(d_tablero, N, M, 2, 3);*/
-
+    encontrar_caminos<<<1, bloque>>>(d_tablero, N, M, 2, 3);
     
-
-    //Funcion que busque camino
-    int* camino = (int*)malloc(sizeof(int) * N * M);
-    int* visitados = (int*)malloc(sizeof(int) * N * M);
-
-    for (int i = 0; i < N * M; i++) {
-        camino[i] = -1; 
-        visitados[i] = -1; 
-    }
-
-    int x = 0; 
-    int y = 0; 
-
-    if(tablero[id] == tablero[selec])
-    buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
-
-    printf("\nCamino desde %d\n: ", id);
-    for (int i = 0; i < y; ++i) {
-        printf("%d, ", camino[i]);
-    }
-
-    printf("\nVisitados desde %d\n: ", id);
-    for (int i = 0; i < x; ++i) {
-        printf("%d, ", visitados[i]);
-    }
-
-    printf("\nValores de X e Y: (%d, %d)\n", x, y); 
-
-    free(camino); 
-    free(visitados); 
     free(tablero); 
 
     return 0;
