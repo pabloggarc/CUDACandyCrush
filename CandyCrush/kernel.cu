@@ -6,10 +6,11 @@
 
 int N = 10; 
 int M = 5; 
+int vidas = 5; 
 int dificultad; 
 int modo; 
 
-__device__ bool pertenece(int* x, int n, int y) {
+__host__ __device__ bool pertenece(int* x, int n, int y) {
     bool p = false;
     for (int i = 0; i < n; ++i) {
         p = p || x[i] == y;
@@ -62,17 +63,30 @@ __global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int col
     //Funcion que busque camino
     int* camino = (int*)malloc(N * M * sizeof(int)); 
     int* visitados = (int*)malloc(N * M * sizeof(int));
-    int x = 0; 
-    int y = 0; 
+    int x = 1; 
+    int y = 1; 
 
-    for (int i = 0; i < N * M; ++i) {
+    for (int i = 1; i < N * M; ++i) {
         camino[i] = -1; 
         visitados[i] = -1; 
     }
 
+    camino[0] = id; 
+    visitados[0] = id; 
+
     if (tablero[selec] == tablero[id]) {
         buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
     }
+
+    if (pertenece(camino, N * M, selec)) {
+        for (int i = 0; i < N * M; ++i) {
+            int id_camino = camino[i];
+            if (id_camino != -1) {
+                tablero[id_camino] = 'X';
+            }
+        }
+    }
+
     
     free(visitados); 
 }
@@ -142,7 +156,7 @@ void mostrar_tablero(char* tablero, int n, int m) {
 
 int main(int argc, char* argv[]){
 
-    //cargar_argumentos(argc, argv); 
+    cargar_argumentos(argc, argv); 
     int tam_tablero = sizeof(char) * N * M; 
     char* tablero = (char*)malloc(tam_tablero);
 
@@ -152,14 +166,26 @@ int main(int argc, char* argv[]){
         }
     }
 
-    mostrar_tablero(tablero, N, M); 
 
-    char* d_tablero;
-    cudaMalloc((void**)&d_tablero, sizeof(char) * N * M); 
-    cudaMemcpy(d_tablero, tablero, sizeof(char) * N * M, cudaMemcpyHostToDevice); 
+    while (vidas > 0) {
+        mostrar_tablero(tablero, N, M);
 
-    dim3 bloque(N, M); 
-    encontrar_caminos<<<1, bloque>>>(d_tablero, N, M, 2, 3);
+        char* d_tablero;
+        cudaMalloc((void**)&d_tablero, sizeof(char) * N * M);
+        cudaMemcpy(d_tablero, tablero, sizeof(char) * N * M, cudaMemcpyHostToDevice);
+
+        int fila;
+        int col; 
+
+        printf("Selecciona fila y columna de la casilla a eliminar: "); 
+        scanf("%d %d", &fila, &col); 
+
+        dim3 bloque(N, M);
+        encontrar_caminos <<<1, bloque >>> (d_tablero, N, M, fila, col);
+        cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost); 
+    }
+
+    
     
     free(tablero); 
 
