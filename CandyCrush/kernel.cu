@@ -56,6 +56,55 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
     }
 }
 
+
+//kernel que elimina los caramelos de una fila
+__global__ void bomba_fila(char* tablero, int fila) {
+    int id = threadIdx.y * N + threadIdx.x;
+
+    if (fila == id)
+    {
+        tablero[fila * N + M] = 'X';   //hacemos que las posiciones de la fila se hagan X para eliminarse despues
+    }
+}
+
+//kernel que elimina los caramelos de una columna
+__global__ void bomba_columna(char* tablero, int columna) {
+    int id = threadIdx.y * N + threadIdx.x;
+
+    if (columna == id)
+    {
+        tablero[columna * M + N] = 'X';   //hacemos que las posiciones de la columna se hagan X para eliminarse despues
+    }
+}
+
+//kernel que borra los caramelos de un mismo valor
+__global__ void bomba_rompecabezas(char* tablero, int numero, int fila, int columna) {
+    int id = threadIdx.y * N + threadIdx.x;
+
+    if (fila == id && columna == id)
+    {
+        tablero[fila * M + columna] = 'X';       //si la posicion que le pasamos es la del rompecabezas, se pone a X para eliminarlo
+    }
+
+    if (tablero[fila * M + columna] == numero)
+    {
+        tablero[fila * M + columna] = 'X';             //si la posicion es del mismo valor que el rompecabes se pone a X para eliminarlo
+    }
+}
+
+
+//kernel que borra los caramelos de forma radial
+__global__ void bomba_rompecabezas(char* tablero, int numero, int fila, int columna) {
+    int id = threadIdx.y * N + threadIdx.x;
+
+    if (fila >= N - 4 && fila <= N + 4 && columna >= M - 4 && columna <= M + 4)
+    {
+        tablero[fila * M + columna] = 'X';            //marca a X todos los elementos a 4 de distancia en las 4 direcciones
+    }
+}
+
+
+
 __global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int columna) {
     int selec = fila * M + columna; 
     int id = threadIdx.y * N + threadIdx.x; 
