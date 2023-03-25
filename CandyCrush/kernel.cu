@@ -1,5 +1,6 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include <device_functions.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,40 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
             }
         }
     }
+}
+
+__device__ void recolocar_tablero(char* tablero, int N, int M) {
+    int id = threadIdx.y * N + threadIdx.x;
+    int X_debajo = 0; 
+    int noX_encima = 0; 
+
+    char valor_anterior = tablero[id]; 
+    for (int i = threadIdx.x; i < N * M; i += M) {
+        if (i < id && tablero[i] != 'X') {
+            noX_encima++; 
+        }
+        if (i > id && tablero[i] == 'X') {
+            X_debajo++; 
+        }
+    }
+
+    printf("El hilo %d tiene %d no X por encima, y %d X por debajo\n", id, noX_encima, X_debajo); 
+
+    __syncthreads();
+
+    if (id + M * X_debajo < N * M && X_debajo > 0) {
+        tablero[id + M * X_debajo] = valor_anterior; 
+        printf("El hilo %d, escribe en la posicion %d\n", id, id + M * X_debajo); 
+    }
+    
+    if (valor_anterior == 'X') {
+        X_debajo++; 
+    }
+
+    if (X_debajo - noX_encima > 0) {
+        printf("El hilo %d debe introducir aleatorio\n", id); 
+    }
+
 }
 
 
@@ -139,6 +174,7 @@ __global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int col
         }
     }
 
+    recolocar_tablero(tablero, N, M); 
     
     free(visitados); 
 }
@@ -217,7 +253,6 @@ int main(int argc, char* argv[]){
             tablero[M * i + j] = generar_elemento();
         }
     }
-
 
     while (vidas > 0) {
         mostrar_tablero(tablero, N, M);
