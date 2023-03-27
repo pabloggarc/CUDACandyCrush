@@ -15,8 +15,12 @@ int M;
 int vidas = 5; 
 int modo;
 int dificultad; 
+/*
 __constant__ int nuevos_caramelos_facil[4] = { 1, 2, 3, 4 };  //Cambiar estas cosas por aleatorios
+
 __constant__ int nuevos_caramelos_dificil[6] = { 1, 2, 3, 4, 5, 6 };
+*/
+
 
 //Funciones auxiliares (DEVICE)
 
@@ -182,12 +186,27 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
     }
 
     if (X_debajo - noX_encima > 0) {
+
+        if (*dif) {
+    curandState state;
+    curand_init(clock64(), id, 0, &state);
+    int nuevo_caramelo = curand(&state) % 6 + 1;
+    tablero[id] = nuevo_caramelo + '0';
+}
+else {
+    curandState state;
+    curand_init(clock64(), id, 0, &state);
+    int nuevo_caramelo = curand(&state) % 4 + 1;
+    tablero[id] = nuevo_caramelo + '0';
+}
+
+        /*
         if (*dif) {
             tablero[id] = nuevos_caramelos_dificil[id % 6] + '0';   //Meter aleatorios
         }
         else {
             tablero[id] = nuevos_caramelos_facil[id % 4] + '0';
-        }
+        }*/
     }
 
 }
@@ -232,7 +251,7 @@ __global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* bor
 
         printf("Posición --> (%d, %d) ____  Valores --> (%f, %f)", threadIdx.y, threadIdx.x, fabsf(threadIdx.x - columna), fabsf(threadIdx.y - fila));
 
-        if (fabsf(threadIdx.x - columna) < 4.0 && fabsf(threadIdx.y - fila) < 4.0) {
+        if (fabsf((double)threadIdx.x - columna) < 4.0 && fabsf((double)threadIdx.y - fila) < 4.0) {
 
             tablero[id] = 'X'; 
             atomicAdd(borrados, 1);
