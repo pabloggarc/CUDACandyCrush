@@ -184,51 +184,130 @@ void bloquesEspeciales(char* tablero, int N, int M, int fila, int columna, int s
     {
 
         //borro fila o columna de forma aleatoria
+
         int borradoAleatorio = (rand() % (2 - 1 + 1) + 1) + '0';
         if (borradoAleatorio==1)//borramos la columna
         {
-
+            for (int i = 0; i < N; i++)
+            {
+                tablero[i * M + columna] = 'X';
+            }
         }
         else { //borramos la fila 
-
+            for (int i = 0; i < M; i++)
+            {
+                tablero[fila * M + i] = 'X';
+            }
         }
         printf("Se va aplicar el efeco de la bomba\n");
 
     }
     if (tablero[seleccionado] == 'T')
     {
-        //borro todo en un radio de 4
+        //borro todo en un radio de 4 desde el elemento seleccionado
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (abs(fila - i) + abs(columna - j) <= 4)
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
+
         printf("Se va aplicar el efeco de un bloque TNT\n");
 
     }
     if (tablero[seleccionado] == 'R1')
     {
-        //borro todos los 1
+        //borro todos los elementos de tipo 1 que haya en el tablero
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (tablero[i * M + j] == '1')
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
+
 
     }
     if (tablero[seleccionado] == 'R2')
     {
         //borro todos los 2
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (tablero[i * M + j] == '2')
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
 
     }
     if (tablero[seleccionado] == 'R3')
     {
         //borro todos los 3
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (tablero[i * M + j] == '3')
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
 
     }
     if (tablero[seleccionado] == 'R4')
     {
         //borro todos los 4
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (tablero[i * M + j] == '4')
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
 
     }
     if (tablero[seleccionado] == 'R5')
     {
         //borro todos los 5
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (tablero[i * M + j] == '5')
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
 
     }
     if (tablero[seleccionado] == 'R6')
     {
         //borro todos los 6
+        for (int i = 0; i < N; i++)
+        {
+            for (int j = 0; j < M; j++)
+            {
+                if (tablero[i * M + j] == '6')
+                {
+                    tablero[i * M + j] = 'X';
+                }
+            }
+        }
 
     }
     
@@ -357,17 +436,18 @@ int main(int argc, char* argv[]) {
         }
 
         int seleccionado = fila * M + col;
+        dim3 bloque(N, M); 
 
-
-        if (tablero[seleccionado]!=1 && tablero[seleccionado] != 2 && tablero[seleccionado] != 3 && tablero[seleccionado] != 4 && tablero[seleccionado] != 5 && tablero[seleccionado] != 6)
+        //comprobar si el elemento seleccionado es un numero
+        if (tablero[seleccionado] == '1' || tablero[seleccionado] == '2' || tablero[seleccionado] == '3' || tablero[seleccionado] == '4' || tablero[seleccionado] == '5' || tablero[seleccionado] == '6')
+        {
+            encontrar_caminos << <1, bloque >> > (d_tablero, N, M, fila, col); //genera camino
+            cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
+        } else
         {
             printf("voy a ejecutar los bloques especiales\n");
             bloquesEspeciales(tablero, N, M, fila, col, seleccionado);
         }
-
-        dim3 bloque(N, M); 
-        encontrar_caminos << <1, bloque >> > (d_tablero, N, M, fila, col); //genera camino
-        cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         
 
         //voy a contar las X del tablero que me ha retornado el kernel encontrar_caminos
@@ -380,9 +460,6 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        
-        
-
 
         printf("\nTermino de cambiar los valores por X\n");
         mostrar_tablero(tablero, N, M);
@@ -417,25 +494,10 @@ int main(int argc, char* argv[]) {
         if (cuantos_hay >= 7) {
             //genero bloque ROMPECABEZAS
 
-            /*
-            if (valorRompecabezas == 1) {
-                tablero[seleccionado] = 'R1';
-            }
-            if (valorRompecabezas == 2) {
-                tablero[seleccionado] = 'R2';
-            }
-            if (valorRompecabezas == 3) {
-                tablero[seleccionado] = 'R3';
-            }
-            if (valorRompecabezas == 4) {
-                tablero[seleccionado] = 'R4';
-            }
-            if (valorRompecabezas == 5) {
-                tablero[seleccionado] = 'R5';
-            }
-            if (valorRompecabezas == 6) {
-                tablero[seleccionado] = 'R6';
-            }*/
+            //si el seleccionado era 1 o 2 o 3 o 4 o 5 o 6, lo convierto en R1 o R2 o R3 o R4 o R5 o R6
+            int valorRompecabezas = tablero[seleccionado] - '0';
+            tablero[seleccionado] = 'R';
+            tablero[seleccionado] += valorRompecabezas;
 
             printf("entro en el if del bloque de rafael rico");
             mostrar_tablero(tablero, N, M);
