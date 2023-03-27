@@ -15,14 +15,20 @@ int M;
 int vidas = 5; 
 int modo;
 int dificultad; 
-/*
-__constant__ int nuevos_caramelos_facil[4] = { 1, 2, 3, 4 };  //Cambiar estas cosas por aleatorios
-
-__constant__ int nuevos_caramelos_dificil[6] = { 1, 2, 3, 4, 5, 6 };
-*/
 
 
 //Funciones auxiliares (DEVICE)
+
+/*
+   a y b: límites del intervalo del que se quiere obtener un número aleatorio
+   Salida R perteneciente a [a, b]
+*/
+
+__device__ int aleatorio(int a, int b) {
+    curandState state;
+    curand_init(clock64(), threadIdx.y * blockDim.x + threadIdx.x, 0, &state);
+    return curand(&state) % (b - a + 1) + a;
+}
 
 /*
     x: vector de enteros
@@ -108,9 +114,7 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
     int id = threadIdx.y * blockDim.x + threadIdx.x;
 
     int N = blockDim.y; 
-    int M = blockDim.x; 
-
-    //printf("Soy el hilo (%d, %d) y leo %c en la posicion %d\n", threadIdx.y, threadIdx.x, tablero[id], id); 
+    int M = blockDim.x;  
 
     //Funcion que busque camino
     int* camino = (int*)malloc(N * M * sizeof(int));
@@ -188,31 +192,17 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
     if (X_debajo - noX_encima > 0) {
 
         if (*dif) {
-    curandState state;
-    curand_init(clock64(), id, 0, &state);
-    int nuevo_caramelo = curand(&state) % 6 + 1;
-    tablero[id] = nuevo_caramelo + '0';
-}
-else {
-    curandState state;
-    curand_init(clock64(), id, 0, &state);
-    int nuevo_caramelo = curand(&state) % 4 + 1;
-    tablero[id] = nuevo_caramelo + '0';
-}
-
-        /*
-        if (*dif) {
-            tablero[id] = nuevos_caramelos_dificil[id % 6] + '0';   //Meter aleatorios
+            tablero[id] = aleatorio(1, 6) + '0';
         }
         else {
-            tablero[id] = nuevos_caramelos_facil[id % 4] + '0';
-        }*/
+            tablero[id] = aleatorio(1, 4) + '0';
+        }
     }
 
 }
 
 
-__global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* borrados, char* rompe) {
+__global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* borrados, char* rompe, int* dif) {
 
     int N = blockDim.y;
     int M = blockDim.x;
@@ -224,15 +214,23 @@ __global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* bor
 
     __syncthreads(); 
 
-    if (objeto == 'B'){
+    if (objeto == 'B' && id == seleccionado){ 
+        *rompe = aleatorio(0, 1); 
+        tablero[id] = 'X';
 
-        printf("Bomba entro\n"); 
+        printf("\n\t\t\tOBJETO especial, se aplica el efecto de la bomba "); 
+        if (*rompe) {
+            printf("borrar FILA\n"); 
+        }
+        else {
+            printf("borrar COLUMNA\n"); 
+        }
+    }
 
-        //Borro fila o columna de forma aleatoria
+    __syncthreads();
 
-        int borrar_fila = 0; //Poner aquí random
-
-        if (borrar_fila){
+    if (objeto == 'B' && id != seleccionado) {
+        if (*rompe) {
             if (threadIdx.y == fila) {
                 tablero[id] = 'X';
                 atomicAdd(borrados, 1);
@@ -249,24 +247,33 @@ __global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* bor
     if (objeto == 'T'){
         //Borro todo en un radio de 4 desde el elemento seleccionado
 
-        printf("Posición --> (%d, %d) ____  Valores --> (%f, %f)", threadIdx.y, threadIdx.x, fabsf(threadIdx.x - columna), fabsf(threadIdx.y - fila));
-
         if (fabsf((double)threadIdx.x - columna) < 4.0 && fabsf((double)threadIdx.y - fila) < 4.0) {
 
             tablero[id] = 'X'; 
             atomicAdd(borrados, 1);
 
-            printf("Se ha aplicado el efecto del TNT (%d, %d)\n", fila, columna);
+            if (id == seleccionado) {
+                printf("\n\t\t\tOBJETO especial, se aplica el efecto del TNT\n");
+            }
         }
     }
 
     if (objeto == 'R' && id == seleccionado){
         //Borro todos los elementos del tipo
 
-        char tipo = '1'; //Meter aquí aleatorio
+        char tipo; 
+
+        if (*dif) {
+            tipo = aleatorio(1, 6) + '0'; 
+        }
+        else {
+            tipo = aleatorio(1, 4) + '0';
+        }
         tablero[id] = 'X'; 
         atomicAdd(borrados, 1);
         *rompe = tipo; 
+
+        printf("\n\t\tOBJETO especial, se aplica el efecto del rompecabezas, borrar caramelos tipo %c\n", tipo);
     }
 
     __syncthreads(); 
@@ -274,9 +281,7 @@ __global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* bor
     if (objeto == 'R' && id != seleccionado && *rompe == o_propio) {
         tablero[id] = 'X';
         atomicAdd(borrados, 1);
-        printf("Se ha aplicado el efecto del rompecabezas (%d, %d)\n", fila, columna);
     }
-    
 }
 
 //Funciones auxiliares (HOST)
@@ -427,8 +432,7 @@ int main(int argc, char* argv[]) {
             encontrar_caminos <<<1, bloque>>> (d_tablero, seleccionado, d_X); 
         } 
         else{
-            printf("debug> no miro camino\n"); 
-            bloquesEspeciales <<<1, bloque>>> (d_tablero, fila, col, d_X, d_rompe);
+            bloquesEspeciales <<<1, bloque>>> (d_tablero, fila, col, d_X, d_rompe, d_dif);
             especial_usado++; 
         }
 
@@ -437,7 +441,7 @@ int main(int argc, char* argv[]) {
         
         //Decidimos qué pasa en función de los que se han borrado
 
-        printf("debug>BORRADOS: %d\n", borrados); 
+        printf("\nCaramelos eliminados: %d\n", borrados); 
         
         if (borrados == 0){
             vidas--;
