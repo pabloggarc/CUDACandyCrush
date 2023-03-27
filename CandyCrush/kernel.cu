@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curand_kernel.h>
+#include <time.h>
 
 //Variables generales del juego
 
@@ -177,25 +178,61 @@ __global__ void recolocar_tablero(char* tablero, int N, int M, int* dif) {
 }
 
 
-/*void bloquesEspeciales(char* tablero, int N, int M, int fila, int columna, int longitud) //longitud del camino
+void bloquesEspeciales(char* tablero, int N, int M, int fila, int columna, int seleccionado) 
 {
-    int indiceSeleccionado = fila * M + columna;
+    if (tablero[seleccionado]=='B')
+    {
 
-    if(longitud == 5){ // Si hay cinco bloques del mismo color, uno al lado del otro, cuando lo toca obtiene una bomba. Cuando
-                        //lo toca, borra todos los bloques en esa fila o columna de forma aleatoria.
-        //genero bloque BOMBA
-        tablero[indiceSeleccionado] = 'B';
+        //borro fila o columna de forma aleatoria
+        int borradoAleatorio = (rand() % (2 - 1 + 1) + 1) + '0';
+        if (borradoAleatorio==1)//borramos la columna
+        {
+
+        }
+        else { //borramos la fila 
+
+        }
+        printf("Se va aplicar el efeco de la bomba\n");
 
     }
-    else if(longitud == 6){
-        //genero bloque TNT
-        tablero[indiceSeleccionado] = 'T';
+    if (tablero[seleccionado] == 'T')
+    {
+        //borro todo en un radio de 4
+        printf("Se va aplicar el efeco de un bloque TNT\n");
+
     }
-    else if(longitud >= 7){
-        //genero bloque ROMPECABEZAS
-        tablero[indiceSeleccionado] = 'R';
+    if (tablero[seleccionado] == 'R1')
+    {
+        //borro todos los 1
+
     }
-}*/
+    if (tablero[seleccionado] == 'R2')
+    {
+        //borro todos los 2
+
+    }
+    if (tablero[seleccionado] == 'R3')
+    {
+        //borro todos los 3
+
+    }
+    if (tablero[seleccionado] == 'R4')
+    {
+        //borro todos los 4
+
+    }
+    if (tablero[seleccionado] == 'R5')
+    {
+        //borro todos los 5
+
+    }
+    if (tablero[seleccionado] == 'R6')
+    {
+        //borro todos los 6
+
+    }
+    
+}
 
 //Funciones auxiliares (HOST)
 
@@ -319,12 +356,19 @@ int main(int argc, char* argv[]) {
             printf("Seleccionada fila %d y columna %d\n", fila, col);
         }
 
-       
-        
+        int seleccionado = fila * M + col;
 
-        dim3 bloque(N, M);
+
+        if (tablero[seleccionado]!=1 && tablero[seleccionado] != 2 && tablero[seleccionado] != 3 && tablero[seleccionado] != 4 && tablero[seleccionado] != 5 && tablero[seleccionado] != 6)
+        {
+            printf("voy a ejecutar los bloques especiales\n");
+            bloquesEspeciales(tablero, N, M, fila, col, seleccionado);
+        }
+
+        dim3 bloque(N, M); 
         encontrar_caminos << <1, bloque >> > (d_tablero, N, M, fila, col); //genera camino
         cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
+        
 
         //voy a contar las X del tablero que me ha retornado el kernel encontrar_caminos
         for (int i = 0; i < N; i++) {
@@ -335,9 +379,9 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-
-        //obtengo el valor de la posicion seleccionada
-        posicion = tablero[M * fila + col];
+        
+        
+        
 
 
         printf("\nTermino de cambiar los valores por X\n");
@@ -350,29 +394,49 @@ int main(int argc, char* argv[]) {
         {
             //resto una vida
             vidas--;
-            printf("\nNo hay caminos, pierdes una vida. Te quedan %d vidas.\n", vidas);
+            printf("\nNo hay caminos, pierdes una vida.\n Te quedan %d vidas: \n", vidas);
             mostrar_tablero(tablero, N, M);
         }
 
         if (cuantos_hay == 5) { // Si hay cinco bloques del mismo color, uno al lado del otro, cuando lo toca obtiene una bomba. Cuando 
                             //lo toca, borra todos los bloques en esa fila o columna de forma aleatoria.
             //genero bloque BOMBA
-
-            posicion = 'B';
+            
+            tablero[seleccionado] = 'B';
             printf("entro en el if del bloque bomba");
             mostrar_tablero(tablero, N, M);
         }
 
         if (cuantos_hay == 6) {
             //genero bloque TNT
-            posicion = 'T';
+            tablero[seleccionado] = 'T';
             printf("entro en el if del bloque tnt");
             mostrar_tablero(tablero, N, M);
         }
 
         if (cuantos_hay >= 7) {
             //genero bloque ROMPECABEZAS
-            posicion = 'R';
+
+            /*
+            if (valorRompecabezas == 1) {
+                tablero[seleccionado] = 'R1';
+            }
+            if (valorRompecabezas == 2) {
+                tablero[seleccionado] = 'R2';
+            }
+            if (valorRompecabezas == 3) {
+                tablero[seleccionado] = 'R3';
+            }
+            if (valorRompecabezas == 4) {
+                tablero[seleccionado] = 'R4';
+            }
+            if (valorRompecabezas == 5) {
+                tablero[seleccionado] = 'R5';
+            }
+            if (valorRompecabezas == 6) {
+                tablero[seleccionado] = 'R6';
+            }*/
+
             printf("entro en el if del bloque de rafael rico");
             mostrar_tablero(tablero, N, M);
         }
