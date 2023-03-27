@@ -1,4 +1,4 @@
-#include "cuda_runtime.h"
+﻿#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <device_functions.h>
 #include <stdio.h>
@@ -6,6 +6,7 @@
 #include <string.h>
 #include <curand_kernel.h>
 #include <time.h>
+#include <math.h>
 
 //Variables generales del juego
 
@@ -14,7 +15,7 @@ int M;
 int vidas = 5; 
 int modo;
 int dificultad; 
-__constant__ int nuevos_caramelos_facil[4] = { 1, 2, 3, 4 };
+__constant__ int nuevos_caramelos_facil[4] = { 1, 2, 3, 4 };  //Cambiar estas cosas por aleatorios
 __constant__ int nuevos_caramelos_dificil[6] = { 1, 2, 3, 4, 5, 6 };
 
 //Funciones auxiliares (DEVICE)
@@ -50,7 +51,11 @@ __host__ __device__ bool pertenece(int* x, int n, int y) {
 
 */
 
-__device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y, int N, int M) {
+__device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y) {
+
+    int N = blockDim.y;
+    int M = blockDim.x;
+
     if (inicio != fin) {
         //Encima, debajo, izq, dcha ||||| Vecino = -1 --> fuera del tablero
         int vecinos[5] = { inicio, inicio - M, inicio + M, inicio - 1, inicio + 1 };
@@ -69,19 +74,17 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
 
         for (int i = 0; i < 5; ++i) {
             if (!pertenece(visitados, *x, vecinos[i])) {
-                if (vecinos[i] != -1) {
-                    //Se marca como explorado
+                //Se marca como explorado
 
-                    visitados[*x] = vecinos[i];
-                    (*x)++;
+                visitados[*x] = vecinos[i];
+                (*x)++;
 
-                    if (tablero[inicio] == tablero[vecinos[i]]) {
-                        //En caso de que el vecino sea del mismo tipo, sigo el camino
+                if (tablero[inicio] == tablero[vecinos[i]]) {
+                    //En caso de que el vecino sea del mismo tipo, sigo el camino
 
-                        camino[*y] = vecinos[i];
-                        (*y)++;
-                        buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y, N, M);
-                    }
+                    camino[*y] = vecinos[i];
+                    (*y)++;
+                    buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y);
                 }
             }
         }
@@ -97,9 +100,13 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
 
 */
 
-__global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int columna, int* borrados) {
-    int selec = fila * M + columna;
-    int id = threadIdx.y * N + threadIdx.x;
+__global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
+    int id = threadIdx.y * blockDim.x + threadIdx.x;
+
+    int N = blockDim.y; 
+    int M = blockDim.x; 
+
+    //printf("Soy el hilo (%d, %d) y leo %c en la posicion %d\n", threadIdx.y, threadIdx.x, tablero[id], id); 
 
     //Funcion que busque camino
     int* camino = (int*)malloc(N * M * sizeof(int));
@@ -116,7 +123,7 @@ __global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int col
     visitados[0] = id;
 
     if (tablero[selec] == tablero[id]) {
-        buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
+        buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
     }
 
     if (pertenece(camino, N * M, selec) && x > 1) {
@@ -127,6 +134,8 @@ __global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int col
             }
         }
     }
+
+    __syncthreads(); 
 
     if (tablero[id] == 'X') {
         atomicAdd(borrados, 1);
@@ -145,8 +154,10 @@ __global__ void encontrar_caminos(char* tablero, int N, int M, int fila, int col
 
 */
 
-__global__ void recolocar_tablero(char* tablero, int N, int M, int* dif) {
-    int id = threadIdx.y * N + threadIdx.x;
+__global__ void recolocar_tablero(char* tablero, int* dif) {
+    int id = threadIdx.y * blockDim.x + threadIdx.x;
+    int N = blockDim.y;
+    int M = blockDim.x;
     int X_debajo = 0; 
     int noX_encima = 0; 
 
@@ -172,7 +183,7 @@ __global__ void recolocar_tablero(char* tablero, int N, int M, int* dif) {
 
     if (X_debajo - noX_encima > 0) {
         if (*dif) {
-            tablero[id] = nuevos_caramelos_dificil[id % 6] + '0'; 
+            tablero[id] = nuevos_caramelos_dificil[id % 6] + '0';   //Meter aleatorios
         }
         else {
             tablero[id] = nuevos_caramelos_facil[id % 4] + '0';
@@ -182,32 +193,46 @@ __global__ void recolocar_tablero(char* tablero, int N, int M, int* dif) {
 }
 
 
-__global__ void bloquesEspeciales(char* tablero, int N, int M, int fila, int columna, int* borrados) {
+__global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* borrados, char* rompe) {
 
-    int id = threadIdx.y * N + threadIdx.x;
+    int N = blockDim.y;
+    int M = blockDim.x;
+
+    int id = threadIdx.y * blockDim.x + threadIdx.x;
     int seleccionado = fila * M + columna; 
+    char o_propio = tablero[id]; 
+    char objeto = tablero[seleccionado]; 
 
-    if (tablero[seleccionado] == 'B'){
+    __syncthreads(); 
+
+    if (objeto == 'B'){
+
+        printf("Bomba entro\n"); 
 
         //Borro fila o columna de forma aleatoria
 
-        int borradoAleatorio = clock64() % 2; 
+        int borrar_fila = 0; //Poner aquí random
 
-        if ((borradoAleatorio && threadIdx.x == columna) ||
-            (borradoAleatorio && threadIdx.y == fila)){
-
-            tablero[id] = 'X'; 
-            atomicAdd(borrados, 1);
-
-            printf("Ha explotado la bomba (%d, %d)\n", fila, columna);
+        if (borrar_fila){
+            if (threadIdx.y == fila) {
+                tablero[id] = 'X';
+                atomicAdd(borrados, 1);
+            }
+        }
+        else {
+            if (threadIdx.x == columna) {
+                tablero[id] = 'X';
+                atomicAdd(borrados, 1);
+            }
         }
     }
 
-    if (tablero[seleccionado] == 'T'){
+    if (objeto == 'T'){
         //Borro todo en un radio de 4 desde el elemento seleccionado
-        
-        if (((threadIdx.x + 4 == columna) || (threadIdx.x - 4 == columna)) &&
-            ((threadIdx.y + 4 == fila) || (threadIdx.y - 4 == fila))) {
+
+        printf("Posición --> (%d, %d) ____  Valores --> (%f, %f)", threadIdx.y, threadIdx.x, fabsf(threadIdx.x - columna), fabsf(threadIdx.y - fila));
+
+        if (fabsf(threadIdx.x - columna) < 4.0 && fabsf(threadIdx.y - fila) < 4.0) {
 
             tablero[id] = 'X'; 
             atomicAdd(borrados, 1);
@@ -216,16 +241,21 @@ __global__ void bloquesEspeciales(char* tablero, int N, int M, int fila, int col
         }
     }
 
-    if (tablero[seleccionado] == 'R'){
+    if (objeto == 'R' && id == seleccionado){
         //Borro todos los elementos del tipo
-        
-        char tipo = clock64() % 6 + 1 + '0';
-        if (tablero[seleccionado] == tipo) {
-            tablero[id] = 'X'; 
-            atomicAdd(borrados, 1);
 
-            printf("Se ha aplicado el efecto del rompecabezas (%d, %d)\n", fila, columna);
-        }
+        char tipo = '1'; //Meter aquí aleatorio
+        tablero[id] = 'X'; 
+        atomicAdd(borrados, 1);
+        *rompe = tipo; 
+    }
+
+    __syncthreads(); 
+
+    if (objeto == 'R' && id != seleccionado && *rompe == o_propio) {
+        tablero[id] = 'X';
+        atomicAdd(borrados, 1);
+        printf("Se ha aplicado el efecto del rompecabezas (%d, %d)\n", fila, columna);
     }
     
 }
@@ -285,16 +315,29 @@ char generar_elemento() {
 }
 
 void mostrar_tablero(char* tablero, int n, int m) {
-    printf("\nTABLERO: \n"); 
-    for (int i = 0; i < n; i++) {
-        printf("\t\t\t\t"); 
-        for (int j = 0; j < m; j++) {
-            printf("%2c", tablero[m * i + j]); 
-        }
-        printf("\n"); 
+    printf("\nTABLERO: \n");
+    printf("\t\t");
+    printf("%4s", "");
+    for (int j = 0; j < m; j++) {
+        printf("%3d", j);
+    }
+    printf("\n");
+    printf("\t\t");
+    printf("%4s", "");
+    for (int j = 0; j < m; j++) {
+        printf("%3c", '-');
     }
     printf("\n"); 
+    for (int i = 0; i < n; i++) {
+        printf("\t\t%3d|", i);
+        for (int j = 0; j < m; j++) {
+            printf("%3c", tablero[m * i + j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
 }
+
 
 //Flujo principal
 
@@ -304,8 +347,6 @@ int main(int argc, char* argv[]) {
     int tam_tablero = sizeof(char) * N * M;
     char* tablero = (char*)malloc(tam_tablero);
     int posicion = 0; //esta en host
-
-    printf("n, m = %d, %d", N, M); 
 
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < M; j++) {
@@ -322,16 +363,19 @@ int main(int argc, char* argv[]) {
 
         char* d_tablero;
         int* d_X; 
+        char* d_rompe; 
 
         cudaMalloc((void**)&d_tablero, sizeof(char) * N * M);
         cudaMalloc((void**)&d_X, sizeof(int)); 
+        cudaMalloc((void**)&d_rompe, sizeof(char)); 
         cudaMemcpy(d_tablero, tablero, sizeof(char) * N * M, cudaMemcpyHostToDevice);
 
 
         int fila;
         int col;
         //Pedir fila y columna al usuario
-        if (modo == 1){
+
+        if (modo){
 
             //Ejecucion manual
             printf("Selecciona fila y columna de la casilla a eliminar: ");
@@ -355,21 +399,24 @@ int main(int argc, char* argv[]) {
 
         int seleccionado = fila * M + col;
         int borrados = 0; 
-        dim3 bloque(N, M); 
+        dim3 bloque(M, N); 
+        int especial_usado = 0; 
 
-        //Comprobar si el elemento seleccionado es un n�mero
+        //Comprobar si el elemento seleccionado es un número
 
         if (tablero[seleccionado] >= 49 && tablero[seleccionado] <= 54){
-            encontrar_caminos <<<1, bloque>>> (d_tablero, N, M, fila, col, d_X); 
+            encontrar_caminos <<<1, bloque>>> (d_tablero, seleccionado, d_X); 
         } 
         else{
-            bloquesEspeciales<<<1, bloque>>>(tablero, N, M, fila, col, d_X);
+            printf("debug> no miro camino\n"); 
+            bloquesEspeciales <<<1, bloque>>> (d_tablero, fila, col, d_X, d_rompe);
+            especial_usado++; 
         }
 
         cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaMemcpy(&borrados, d_X, sizeof(int), cudaMemcpyDeviceToHost);
         
-        //Decidimos qu� pasa en funci�n de los que se han borrado
+        //Decidimos qué pasa en función de los que se han borrado
 
         printf("debug>BORRADOS: %d\n", borrados); 
         
@@ -377,13 +424,13 @@ int main(int argc, char* argv[]) {
             vidas--;
             printf("\nNo hay suficientes caramelos juntos, pierdes una vida!\n");
         }
-        else if (borrados == 5) {
+        else if (borrados == 5 & !especial_usado) {
             tablero[seleccionado] = 'B';
         }
-        else if (borrados == 6) {
+        else if (borrados == 6 & !especial_usado) {
             tablero[seleccionado] = 'T';
         }
-        else if (borrados >= 7) {
+        else if (borrados >= 7 & !especial_usado) {
             tablero[seleccionado] = 'R';
         }
 
@@ -392,7 +439,7 @@ int main(int argc, char* argv[]) {
 
         //Bajamos caramelos y metemos nuevos
 
-        recolocar_tablero << <1, bloque >> > (d_tablero, N, M, d_dif); 
+        recolocar_tablero << <1, bloque >> > (d_tablero, d_dif); 
         cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaFree(d_tablero);
 
