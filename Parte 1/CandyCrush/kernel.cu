@@ -122,6 +122,10 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
     int x = 1;
     int y = 1;
 
+    if (camino == NULL || visitados == NULL) {
+        printf("Error de heap\n"); 
+    }
+
     for (int i = 1; i < N * M; ++i) {
         camino[i] = -1;
         visitados[i] = -1;
@@ -133,6 +137,8 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
     if (tablero[selec] == tablero[id]) {
         buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
     }
+
+    __syncthreads(); 
 
     if (pertenece(camino, N * M, selec) && x > 1) {
         for (int i = 0; i < N * M; ++i) {
@@ -149,6 +155,7 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
         atomicAdd(borrados, 1);
     }
 
+    free(camino); 
     free(visitados);
 }
 
@@ -163,6 +170,7 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
 */
 
 __global__ void recolocar_tablero(char* tablero, int* dif) {
+
     int id = threadIdx.y * blockDim.x + threadIdx.x;
     int N = blockDim.y;
     int M = blockDim.x;
@@ -178,6 +186,8 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
             X_debajo++; 
         }
     }
+
+    //printf("El hilo (%d, %d) tiene %d X debajo, y %d noX encima\n", threadIdx.y, threadIdx.x, X_debajo, noX_encima); 
 
     __syncthreads();
 
@@ -366,7 +376,7 @@ void mostrar_tablero(char* tablero, int n, int m) {
 //Flujo principal
 
 int main(int argc, char* argv[]) {
-    srand(time(NULL)); //semilla para la ejecucion automatica
+    //srand(time(NULL)); //semilla para la ejecucion automatica
     cargar_argumentos(argc, argv); //aqui ya que es N y M
     int tam_tablero = sizeof(char) * N * M;
     char* tablero = (char*)malloc(tam_tablero);
@@ -430,9 +440,11 @@ int main(int argc, char* argv[]) {
 
         if (tablero[seleccionado] >= 49 && tablero[seleccionado] <= 54){
             encontrar_caminos <<<1, bloque>>> (d_tablero, seleccionado, d_X); 
+            cudaDeviceSynchronize();
         } 
         else{
             bloquesEspeciales <<<1, bloque>>> (d_tablero, fila, col, d_X, d_rompe, d_dif);
+            cudaDeviceSynchronize();
             especial_usado++; 
         }
 
@@ -462,7 +474,8 @@ int main(int argc, char* argv[]) {
 
         //Bajamos caramelos y metemos nuevos
 
-        recolocar_tablero << <1, bloque >> > (d_tablero, d_dif); 
+        recolocar_tablero << <1, bloque >> > (d_tablero, d_dif);
+        cudaDeviceSynchronize();
         cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaFree(d_tablero);
 

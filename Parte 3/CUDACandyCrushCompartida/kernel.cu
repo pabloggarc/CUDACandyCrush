@@ -15,7 +15,6 @@ int M;
 int vidas = 5;
 int modo;
 int dificultad;
-int tesela_size; 
 
 //Funciones auxiliares (DEVICE)
 
@@ -62,8 +61,6 @@ __host__ __device__ bool pertenece(int* x, int n, int y) {
 */
 
 __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y, int N, int M) {
-
-    __shared__ char s_tablero[tesela_size][tesela_size]; 
 
     if (inicio != fin) {
         //Encima, debajo, izq, dcha ||||| Vecino = -1 --> fuera del tablero
@@ -116,6 +113,11 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
     int id = fila2 * M + col2;
 
+    extern __shared__ char s_tablero[];
+    s_tablero[id] = tablero[id]; 
+
+    __syncthreads();
+
     //verificar que no sale del tablero
     if (fila2 < N && col2 < M) {
 
@@ -138,8 +140,21 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
         new_tablero[id] = tablero[id];
 
+        bool check; 
 
-        if (tablero[selec] == tablero[id]) {
+        if (col >= blockIdx.x * blockDim.x &&
+            col < (blockIdx.x + 1) * blockDim.x &&
+            fila >= blockIdx.y * blockDim.y &&
+            fila < (blockIdx.y + 1) * blockDim.y) {
+
+            check = s_tablero[selec] == s_tablero[id]; 
+        }
+        else {
+            check = tablero[selec] == tablero[id];
+        }
+
+
+        if (check) {
             buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
         }
 
