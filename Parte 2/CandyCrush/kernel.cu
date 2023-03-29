@@ -65,12 +65,16 @@ __host__ __device__ bool pertenece(int* x, int n, int y) {
 
 */
 
-__device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y) {
+__device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados, int* x, int* camino, int* y, int N, int M) {
 
-    int N = blockDim.y;
-    int M = blockDim.x;
+   
+
+    printf("he llegado a buscar camino\n");
 
     if (inicio != fin) {
+
+        printf("he entrado en el if para buscar en distintas posiciones\n");
+
         //Encima, debajo, izq, dcha ||||| Vecino = -1 --> fuera del tablero
         int vecinos[5] = { inicio, inicio - M, inicio + M, inicio - 1, inicio + 1 };
         if (vecinos[1] < 0) {
@@ -90,6 +94,7 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
             if (!pertenece(visitados, *x, vecinos[i])) {
                 //Se marca como explorado
 
+
                 visitados[*x] = vecinos[i];
                 (*x)++;
 
@@ -98,7 +103,10 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
 
                     camino[*y] = vecinos[i];
                     (*y)++;
-                    buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y);
+
+                    printf("vamos a hacer la llamada recursiva\n");
+
+                    buscar_camino(tablero, vecinos[i], fin, visitados, x, camino, y, N, M);
                 }
             }
         }
@@ -114,46 +122,69 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
 
 */
 
-__global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
-    int id = threadIdx.y * blockDim.x + threadIdx.x;
+__global__ void encontrar_caminos(char* tablero, int selec, int* borrados, int fila, int col, int N, int M) {
 
-    int N = blockDim.y; 
-    int M = blockDim.x;  
+  
+    int fila2 = blockIdx.y * blockDim.y + threadIdx.y;
+    int col2 = blockIdx.x * blockDim.x + threadIdx.x;
 
-    //Funcion que busque camino
-    int* camino = (int*)malloc(N * M * sizeof(int));
-    int* visitados = (int*)malloc(N * M * sizeof(int));
-    int x = 1;
-    int y = 1;
+    int id = fila2 * M + col2;
 
-    for (int i = 1; i < N * M; ++i) {
-        camino[i] = -1;
-        visitados[i] = -1;
-    }
+    printf("id: %d\n", id);
 
-    camino[0] = id;
-    visitados[0] = id;
+    //verificar que no sale del tablero
+    if (fila2 < N && col2 < M) {
+        //Funcion que busque camino
 
-    if (tablero[selec] == tablero[id]) {
-        buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
-    }
+        printf("he entrado en el if\n");
 
-    if (pertenece(camino, N * M, selec) && x > 1) {
+        printf("Soy el hilillo %d, %d y saco el valor %c\n", fila2, col2, tablero[id]);
+
+
+        int* camino = (int*)malloc(N * M * sizeof(int));
+        int* visitados = (int*)malloc(N * M * sizeof(int));
+        int x = 1;
+        int y = 1;
+
         for (int i = 0; i < N * M; ++i) {
-            int id_camino = camino[i];
-            if (id_camino != -1) {
-                tablero[id_camino] = 'X';
+            camino[i] = -1;
+            visitados[i] = -1;
+        }
+
+        camino[0] = id;
+        visitados[0] = id;
+
+        if (tablero[selec] == tablero[id]) {
+            printf("he entrado en el if de buscar camino\n");
+            buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
+        }
+
+        printf("camino: %d\n", camino[0]);
+
+
+        if (pertenece(camino, N * M, selec) && x > 1) {
+            for (int i = 0; i < N * M; ++i) {
+                int id_camino = camino[i];
+                if (id_camino != -1) {
+                    tablero[id_camino] = 'X';
+
+                    printf("sustituyo los valores\n");
+                }
             }
         }
+
+        __syncthreads();
+
+        if (tablero[id] == 'X') {
+            atomicAdd(borrados, 1);
+            printf("borrados: %d\n", *borrados);
+        }
+
+        free(visitados);
+        printf("he liberado visitados\n");
     }
 
-    __syncthreads(); 
-
-    if (tablero[id] == 'X') {
-        atomicAdd(borrados, 1);
-    }
-
-    free(visitados);
+    
 }
 
 /*
@@ -166,10 +197,13 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
 
 */
 
-__global__ void recolocar_tablero(char* tablero, int* dif) {
-    int id = threadIdx.y * blockDim.x + threadIdx.x;
-    int N = blockDim.y;
-    int M = blockDim.x;
+__global__ void recolocar_tablero(char* tablero, int* dif, int N, int M) {
+   
+
+    int fila2 = blockIdx.y * blockDim.y + threadIdx.y;
+    int col2 = blockIdx.x * blockDim.x + threadIdx.x;
+
+    int id = fila2 * M + col2;
     int X_debajo = 0; 
     int noX_encima = 0; 
 
@@ -206,13 +240,14 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
 }
 
 
-__global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* borrados, char* rompe, int* dif) {
+__global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* borrados, char* rompe, int* dif, int N, int M) {
+    
 
-    int N = blockDim.y;
-    int M = blockDim.x;
+    int fila2 = blockIdx.y * blockDim.y + threadIdx.y;
+    int col2 = blockIdx.x * blockDim.x + threadIdx.x;
 
-    int id = threadIdx.y * blockDim.x + threadIdx.x;
-    int seleccionado = fila * M + columna; 
+    int id = fila2 * M + col2;
+    int seleccionado = fila * M + columna;
     char o_propio = tablero[id]; 
     char objeto = tablero[seleccionado]; 
 
@@ -367,7 +402,7 @@ void mostrar_tablero(char* tablero, int n, int m) {
 }
 
 
-void hardWare() {
+void hardWare(int N, int M) {
     //Obtener las propiedades del dispositivo
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
@@ -377,15 +412,16 @@ void hardWare() {
     int hilos_maximos_grid = deviceProp.maxGridSize[1];
 
     //Obtener el numero de bloques teorico
-    int bloques_maximos = ceil((float)N * M / hilos_maximos_bloque);
+    int bloques_maximos = ceil((float)N * M / (float)hilos_maximos_bloque);
+    printf("Numero de bloques teorico: %d\n", bloques_maximos);
 
     //inicializar variables
     int fila, col, fila_grid, col_grid;
 
-    int numBloquesTemp = hilos_maximos_grid; //Numero de bloques temporal
+    int bloques_tem = hilos_maximos_grid; //Numero de bloques temporal
 
     //Comprobar si el numero de bloques es menor que el numero maximo de bloques
-    for (int i = 1; i < hilos_maximos_grid; i++)
+    for (int i = 1; i <= hilos_maximos_bloque; i++)
     {
         if (hilos_maximos_bloque % i == 0) {
             fila = i;
@@ -393,8 +429,9 @@ void hardWare() {
             fila_grid = ceil((float)N / fila);
             col_grid = ceil((float)M / col);
 
-            if (fila_grid * col_grid < numBloquesTemp) {
-                numBloquesTemp = fila_grid * col_grid;
+
+            if (((fila_grid * col_grid) < bloques_tem) && (bloques_maximos <= (fila_grid * col_grid))) {
+                bloques_tem = fila_grid * col_grid;
                 bloque_fila = fila;
                 bloque_col = col;
 
@@ -403,7 +440,10 @@ void hardWare() {
             }
         }
     }
-
+    printf("Numero de filas en el bloque: %d\n", bloque_fila);
+    printf("Numero de columnas en el bloque: %d\n", bloque_col);
+    printf("Numero de filas en el grid: %d\n", grid_fila);
+    printf("Numero de columnas en el grid: %d\n", grid_col);
 }
 
 
@@ -411,8 +451,8 @@ void hardWare() {
 
 int main(int argc, char* argv[]) {
     srand(time(NULL)); //semilla para la ejecucion automatica
-    cargar_argumentos(argc, argv); //aqui ya que es N y M
-    hardWare();
+    cargar_argumentos(argc, argv); 
+    hardWare(N, M);
 
     int tam_tablero = sizeof(char) * N * M;
     char* tablero = (char*)malloc(tam_tablero);
@@ -471,17 +511,17 @@ int main(int argc, char* argv[]) {
 
         int seleccionado = fila * M + col;
         int borrados = 0; 
-        dim3 bloque(M, N); 
+        dim3 bloque(N, M); 
         int especial_usado = 0; 
 
         //Comprobar si el elemento seleccionado es un número
 
         if (tablero[seleccionado] >= 49 && tablero[seleccionado] <= 54){
-            encontrar_caminos << <dimGrid, dimBlock >> > (d_tablero, seleccionado, d_X);
+            encontrar_caminos << <dimBlock, dimGrid >> > (d_tablero, seleccionado, d_X, fila, col, N, M);
             cudaDeviceSynchronize();
         } 
         else{
-            bloquesEspeciales << <dimGrid, dimBlock >> > (d_tablero, fila, col, d_X, d_rompe, d_dif);
+            bloquesEspeciales << <dimGrid, dimBlock >> > (d_tablero, fila, col, d_X, d_rompe, d_dif, N, M);
             cudaDeviceSynchronize();
             especial_usado++; 
         }
@@ -493,6 +533,7 @@ int main(int argc, char* argv[]) {
 
         printf("\nCaramelos eliminados: %d\n", borrados); 
         
+        /*
         if (borrados == 0){
             vidas--;
             printf("\nNo hay suficientes caramelos juntos, pierdes una vida!\n");
@@ -512,12 +553,12 @@ int main(int argc, char* argv[]) {
 
         //Bajamos caramelos y metemos nuevos
 
-        recolocar_tablero << <dimGrid, dimBlock >> > (d_tablero, d_dif);
+        recolocar_tablero << <dimGrid, dimBlock >> > (d_tablero, d_dif, N, M);
         cudaDeviceSynchronize();
         cudaMemcpy(tablero, d_tablero, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaFree(d_tablero);
 
-        printf("Vidas: %d\n", vidas);
+        printf("Vidas: %d\n", vidas);*/
     }
     printf("\nFIN DEL JUEGO, TE HAS QUEDADO SIN VIDAS");
 
