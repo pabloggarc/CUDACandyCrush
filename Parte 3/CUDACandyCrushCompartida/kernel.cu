@@ -111,8 +111,12 @@ __device__ void buscar_camino(char* tablero, int inicio, int fin, int* visitados
 __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, int fila, int col, int N, int M) {
     int fila2 = blockIdx.y * blockDim.y + threadIdx.y;
     int col2 = blockIdx.x * blockDim.x + threadIdx.x;
-
     int id = fila2 * M + col2;
+
+    new_tablero[id] = tablero[id];
+
+    __syncthreads(); 
+
 
     //verificar que no sale del tablero
     if (fila2 < N && col2 < M) {
@@ -133,10 +137,6 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
         camino[0] = id;
         visitados[0] = id;
-
-        new_tablero[id] = tablero[id];
-
-        __syncthreads(); 
 
         if (tablero[id] == tablero[selec]) {
             buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
@@ -175,8 +175,10 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
     extern __shared__ char s_tablero[]; 
     int id_shared = threadIdx.x + threadIdx.y * blockDim.x; 
 
-    s_tablero[id_shared] = tablero[id]; 
-    tablero_aux[id] = s_tablero[id_shared]; 
+    if (fila2 < N && col2 < M) {
+        s_tablero[id_shared] = tablero[id];
+        tablero_aux[id] = s_tablero[id_shared];
+    }
 
     __syncthreads(); 
 

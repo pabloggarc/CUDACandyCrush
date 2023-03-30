@@ -170,6 +170,8 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
     int col2 = blockIdx.x * blockDim.x + threadIdx.x;
     int id = fila2 * M + col2;
 
+    //Según las X que haya por debajo, y no X por encima, podemos averiguar a donde se mueve el valor y si hay que meter entero
+
     if (fila2 < N && col2 < M) {
 
         tablero_aux[id] = tablero[id]; 
@@ -341,6 +343,14 @@ void cargar_argumentos(int argc, char* argv[]) {
         else {
             N = atoi(argv[3]);
             M = atoi(argv[4]);
+
+            cudaDeviceProp deviceProp;
+            cudaGetDeviceProperties(&deviceProp, 0);
+
+            if (N * M > deviceProp.maxThreadsPerMultiProcessor) {
+                printf("Has excedido el numero de hilos posibles en un SM de tu GPU.\n");
+                exit(-1);
+            }
         }
 
         if (error) {
@@ -402,7 +412,7 @@ void calcular_dimensiones_optimas(dim3* grid, dim3* bloques) {
     int bloques_y = ceil(N / (float)anchura_bloque);
     *grid = dim3(bloques_x, bloques_y);
 
-    printf("Info CUDA: \n"); 
+    printf("\nInfo CUDA: \n"); 
     printf("Grid --> (%d, %d)\n", bloques_x, bloques_y);
     printf("Bloques --> (%d, %d)\n", anchura_bloque, anchura_bloque);
 }

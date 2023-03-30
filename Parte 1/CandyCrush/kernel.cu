@@ -134,8 +134,9 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
         buscar_camino(tablero, id, selec, visitados, &x, camino, &y);
     }
 
-    __syncthreads(); 
+    __syncthreads();
 
+    //Marcar el camino como borrado en caso de contener inicio y fin
     if (pertenece(camino, N * M, selec) && x > 1) {
         for (int i = 0; i < N * M; ++i) {
             int id_camino = camino[i];
@@ -173,6 +174,8 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
     int X_debajo = 0; 
     int noX_encima = 0; 
 
+    //Según las X que haya por debajo, y no X por encima, podemos averiguar a donde se mueve el valor y si hay que meter entero
+
     char valor_anterior = tablero[id]; 
     for (int i = threadIdx.x; i < N * M; i += M) {
         if (i < id && tablero[i] != 'X') {
@@ -182,9 +185,6 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
             X_debajo++; 
         }
     }
-
-    //printf("El hilo (%d, %d) tiene %d X debajo, y %d noX encima\n", threadIdx.y, threadIdx.x, X_debajo, noX_encima); 
-
     __syncthreads();
 
     if (id + M * X_debajo < N * M && X_debajo > 0 && valor_anterior != 'X') {
@@ -206,6 +206,19 @@ __global__ void recolocar_tablero(char* tablero, int* dif) {
     }
 
 }
+
+/*
+
+    Hace las acciones de los bloques especiales. 
+    tablero: tablero del juego
+    fila y columna: del elemento seleccionado
+    borrados: cantidad de caramelos que se borran
+    rompe: para pasar un valor aleatorio
+    dif: dificultad
+
+    Salida: medainte tablero, con las casillas borradas según el efecto
+
+*/
 
 
 __global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* borrados, char* rompe, int* dif) {
@@ -294,7 +307,7 @@ __global__ void bloquesEspeciales(char* tablero, int fila, int columna, int* bor
 
 void cargar_argumentos(int argc, char* argv[]) {
     if (argc != 5) {
-        perror("Se esperaban argumentos -a/-m 1/2 n m. "); 
+        printf("Se esperaban argumentos -a/-m 1/2 n m. "); 
         exit(-1); 
     }
     else {
@@ -325,6 +338,14 @@ void cargar_argumentos(int argc, char* argv[]) {
         else {
             N = atoi(argv[3]); 
             M = atoi(argv[4]); 
+
+            cudaDeviceProp deviceProp;
+            cudaGetDeviceProperties(&deviceProp, 0);
+
+            if (N * M > deviceProp.maxThreadsPerMultiProcessor) {
+                printf("Has excedido el numero de hilos posibles en un SM de tu GPU.\n"); 
+                exit(-1); 
+            }
         }
 
         if (error) {

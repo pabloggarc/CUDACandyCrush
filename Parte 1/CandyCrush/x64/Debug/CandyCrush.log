@@ -1,15 +1,14 @@
 ﻿  Compiling CUDA source file kernel.cu...
   
   D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 1\CandyCrush>"D:\NVIDIA GPU Computing Toolkit\CUDA\v10.2\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env -ccbin "D:\Programas\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\HostX86\x64" -x cu  -I"D:\NVIDIA GPU Computing Toolkit\CUDA\v10.2\include" -I"D:\NVIDIA GPU Computing Toolkit\CUDA\v10.2\include"  -G   --keep-dir x64\Debug -maxrregcount=0  --machine 64 --compile -cudart static  -g   -DWIN32 -DWIN64 -D_DEBUG -D_CONSOLE -D_MBCS -Xcompiler "/EHsc /W3 /nologo /Od /Fdx64\Debug\vc142.pdb /FS /Zi /RTC1 /MDd " -o x64\Debug\kernel.cu.obj "D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 1\CandyCrush\kernel.cu" 
-D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programaci¾n/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(213): warning : variable "N" was declared but never referenced
+D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programaci¾n/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(226): warning : variable "N" was declared but never referenced
   
-D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programaci¾n/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(377): warning : variable "tam_tablero" was declared but never referenced
+D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programaci¾n/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(398): warning : variable "tam_tablero" was declared but never referenced
   
-D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programaci¾n/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(379): warning : variable "posicion" was declared but never referenced
+D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programaci¾n/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(400): warning : variable "posicion" was declared but never referenced
   
 CUDACOMPILE : ptxas warning : Stack size for entry function '_Z17encontrar_caminosPciPi' cannot be statically determined
   kernel.cu
   device_functions.h is an internal header file and must not be used directly.  This file will be removed in a future CUDA release.  Please use cuda_runtime_api.h or cuda_runtime.h instead.
-D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programación/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(375): warning C4244: 'argumento': conversión de 'time_t' a 'unsigned int'; posible pérdida de datos
-     Creando biblioteca D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 1\CandyCrush\x64\Debug\CandyCrush.lib y objeto D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 1\CandyCrush\x64\Debug\CandyCrush.exp
+D:/Documentos/UAH/Curso 2022 - 2023/Cuatrimestre 2/Paradigmas avanzados de programación/Laboratorio/PL1/CUDACandyCrush/Parte 1/CandyCrush/kernel.cu(396): warning C4244: 'argumento': conversión de 'time_t' a 'unsigned int'; posible pérdida de datos
   CandyCrush.vcxproj -> D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 1\CandyCrush\x64\Debug\CandyCrush.exe
