@@ -166,7 +166,7 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
 */
 
-__global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, int N, int M) {
+__global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, int N, int M, int s_dim) {
 
     int fila2 = blockIdx.y * blockDim.y + threadIdx.y;
     int col2 = blockIdx.x * blockDim.x + threadIdx.x;
@@ -182,27 +182,34 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
 
     if (fila2 < N && col2 < M) {
 
-        printf("El hilo (%d, %d) accede al valor %c\n", fila2, col2, s_tablero[id_shared]); 
-
         int X_debajo = 0;
         int noX_encima = 0;
-
         char valor_anterior = s_tablero[id_shared];
 
+        int filas_recorridas = 0; 
+        int shared_index = threadIdx.x; 
         for (int i = threadIdx.x; i < N * M; i += M) {
-            if (i < id && s_tablero[i] != 'X') {
-                noX_encima++;
+            if (filas_recorridas <= s_dim) {
+                if (i < id && s_tablero[shared_index] != 'X') {
+                    noX_encima++;
+                }
+                if (i > id && s_tablero[shared_index] == 'X') {
+                    X_debajo++;
+                }
             }
-            if (i > id && s_tablero[i] == 'X') {
-                X_debajo++;
+            else {
+                if (i < id && tablero[i] != 'X') {
+                    noX_encima++;
+                }
+                if (i > id && tablero[i] == 'X') {
+                    X_debajo++;
+                }
             }
-        }
-
-        printf("El hilo (%d, %d) tiene %d X debajo y %d noX encima\n", fila2, col2, X_debajo, noX_encima); 
+            shared_index += s_dim; 
+        } 
 
         if (id + M * X_debajo < N * M && X_debajo > 0 && valor_anterior != 'X') {
             tablero_aux[id + M * X_debajo] = valor_anterior;
-            printf("El hilo (%d, %d) escribe %c en %d\n", fila2, col2, valor_anterior, id + M * X_debajo); 
         }
 
         if (valor_anterior == 'X') {
@@ -210,14 +217,12 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
         }
 
         if (X_debajo - noX_encima > 0) {
-
             if (*dif) {
                 tablero_aux[id] = aleatorio(1, 6) + '0';
             }
             else {
                 tablero_aux[id] = aleatorio(1, 4) + '0';
             }
-            printf("El hilo (%d, %d) escribe rand en %d\n", fila2, col2, id + M * X_debajo);
         }
 
     }
@@ -546,7 +551,7 @@ int main(int argc, char* argv[]) {
 
         //Bajamos caramelos y metemos nuevos
 
-        recolocar_tablero << <dim_grid, dim_bloque, sizeof(char) * s_dim * s_dim>> > (d_tablero, d_tablero_aux, d_dif, N, M);
+        recolocar_tablero << <dim_grid, dim_bloque, sizeof(char) * s_dim * s_dim>> > (d_tablero, d_tablero_aux, d_dif, N, M, s_dim);
         cudaDeviceSynchronize();
         
         cudaMemcpy(tablero, d_tablero_aux, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
