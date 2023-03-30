@@ -113,18 +113,13 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
     int id = fila2 * M + col2;
 
-    extern __shared__ char s_tablero[];
-    s_tablero[id] = tablero[id]; 
-
-    __syncthreads();
-
     //verificar que no sale del tablero
     if (fila2 < N && col2 < M) {
 
         //Funcion que busque camino
 
-        int* camino = (int*)malloc(N * M * sizeof(int));
-        int* visitados = (int*)malloc(N * M * sizeof(int));
+        int* camino = new int[N * M];
+        int* visitados = new int[N * M];
 
         int x = 1;
         int y = 1;
@@ -140,21 +135,9 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
         new_tablero[id] = tablero[id];
 
-        bool check; 
+        __syncthreads(); 
 
-        if (col >= blockIdx.x * blockDim.x &&
-            col < (blockIdx.x + 1) * blockDim.x &&
-            fila >= blockIdx.y * blockDim.y &&
-            fila < (blockIdx.y + 1) * blockDim.y) {
-
-            check = s_tablero[selec] == s_tablero[id]; 
-        }
-        else {
-            check = tablero[selec] == tablero[id];
-        }
-
-
-        if (check) {
+        if (tablero[id] == tablero[selec]) {
             buscar_camino(tablero, id, selec, visitados, &x, camino, &y, N, M);
         }
 
@@ -167,7 +150,8 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
             }
         }
 
-        free(visitados);
+        delete[] camino; 
+        delete[] visitados; 
     }
 }
 
@@ -187,25 +171,35 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
     int col2 = blockIdx.x * blockDim.x + threadIdx.x;
     int id = fila2 * M + col2;
 
-    if (fila2 < N && col2 < M) {
+    extern __shared__ char s_tablero[]; 
+    int id_shared = threadIdx.x + threadIdx.y * blockDim.x; 
 
-        tablero_aux[id] = tablero[id];
+    s_tablero[id_shared] = tablero[id]; 
+    tablero_aux[id] = s_tablero[id_shared]; 
+
+    __syncthreads(); 
+
+    if (fila2 < N && col2 < M) {
 
         int X_debajo = 0;
         int noX_encima = 0;
 
-        char valor_anterior = tablero[id];
-        for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N * M; i += M) {
-            if (i < id && tablero[i] != 'X') {
+        char valor_anterior = s_tablero[id_shared];
+
+        for (int i = threadIdx.x; i < N * M; i += M) {
+            if (i < id && s_tablero[i] != 'X') {
                 noX_encima++;
             }
-            if (i > id && tablero[i] == 'X') {
+            if (i > id && s_tablero[i] == 'X') {
                 X_debajo++;
             }
         }
 
+        printf("El hilo (%d, %d) tiene %d X debajo y %d noX encima\n", fila2, col2, X_debajo, noX_encima); 
+
         if (id + M * X_debajo < N * M && X_debajo > 0 && valor_anterior != 'X') {
             tablero_aux[id + M * X_debajo] = valor_anterior;
+            printf("El hilo (%d, %d) escribe %c en %d\n", fila2, col2, valor_anterior, id + M * X_debajo); 
         }
 
         if (valor_anterior == 'X') {
@@ -220,6 +214,7 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
             else {
                 tablero_aux[id] = aleatorio(1, 4) + '0';
             }
+            printf("El hilo (%d, %d) escribe rand en %d\n", fila2, col2, id + M * X_debajo);
         }
 
     }
@@ -313,12 +308,13 @@ __global__ void bloquesEspeciales(char* tablero, char* tablero_aux, int fila, in
 
 */
 
-__global__ void contar_borrados(char* tablero, int* borrados, int M) {
+__global__ void contar_borrados(char* tablero, int* borrados, int N, int M) {
     int fila = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int id = fila * M + col;
 
-    if (tablero[id] == 'X') {
+    if (tablero[id] == 'X' && fila < N && col < M) {
+        printf("El hilo (%d, %d) aumenta borrados\n", fila, col); 
         atomicAdd(borrados, 1);
     }
 }
@@ -413,7 +409,6 @@ void calcular_dimensiones_optimas(dim3* grid, dim3* bloques) {
 
     int hilos_bloque = floor(max_hilos_SM / max_bloques_SM);
     int anchura_bloque = floor(sqrt(pow(2, ceil(log2(hilos_bloque)))));
-    tesela_size = anchura_bloque; 
     *bloques = dim3(anchura_bloque, anchura_bloque);
 
     int bloques_x = ceil(M / (float)anchura_bloque);
@@ -428,7 +423,7 @@ void calcular_dimensiones_optimas(dim3* grid, dim3* bloques) {
 //Flujo principal
 
 int main(int argc, char* argv[]) {
-    srand(time(NULL)); //semilla para la ejecucion automatica
+    //srand(time(NULL)); //semilla para la ejecucion automatica
     cargar_argumentos(argc, argv);
 
     dim3 dim_grid;
@@ -501,10 +496,10 @@ int main(int argc, char* argv[]) {
         cudaMalloc((void**)&d_tablero_aux, tam_tablero);
 
         if (tablero[seleccionado] >= 49 && tablero[seleccionado] <= 54) {
-            encontrar_caminos << <dim_grid, dim_bloque >> > (d_tablero, d_tablero_aux, seleccionado, fila, col, N, M);
+            encontrar_caminos <<<dim_grid, dim_bloque, sizeof(char) * N * M>>> (d_tablero, d_tablero_aux, seleccionado, fila, col, N, M);
             cudaDeviceSynchronize();
 
-            contar_borrados << <dim_grid, dim_bloque >> > (d_tablero_aux, d_X, M);
+            contar_borrados << <dim_grid, dim_bloque >> > (d_tablero_aux, d_X, N, M);
             cudaDeviceSynchronize();
         }
         else {
@@ -522,8 +517,10 @@ int main(int argc, char* argv[]) {
         cudaMemcpy(tablero, d_tablero_aux, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaMemcpy(&borrados, d_X, sizeof(int), cudaMemcpyDeviceToHost);
 
-        //Decidimos qu� pasa en funci�n de los que se han borrado
+        printf("Borrados: %d\n", borrados); 
 
+        //Decidimos qu� pasa en funci�n de los que se han borrado
+        /*
         printf("\nCaramelos eliminados: %d\n", borrados);
 
         if (borrados == 0) {
@@ -538,16 +535,16 @@ int main(int argc, char* argv[]) {
         }
         else if (borrados >= 7 & !especial_usado) {
             tablero[seleccionado] = 'R';
-        }
+        }*/
 
         mostrar_tablero(tablero, N, M);
         cudaMemcpy(d_tablero, tablero, sizeof(char) * N * M, cudaMemcpyHostToDevice);
 
         //Bajamos caramelos y metemos nuevos
 
-        recolocar_tablero << <dim_grid, dim_bloque >> > (d_tablero, d_tablero_aux, d_dif, N, M);
+        recolocar_tablero << <dim_grid, dim_bloque, sizeof(char) * N * M>> > (d_tablero, d_tablero_aux, d_dif, N, M);
         cudaDeviceSynchronize();
-
+        
         cudaMemcpy(tablero, d_tablero_aux, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaFree(d_tablero);
         cudaFree(d_tablero_aux);

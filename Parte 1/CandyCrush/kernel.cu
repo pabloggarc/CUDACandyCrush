@@ -117,14 +117,10 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
     int M = blockDim.x;  
 
     //Funcion que busque camino
-    int* camino = (int*)malloc(N * M * sizeof(int));
-    int* visitados = (int*)malloc(N * M * sizeof(int));
+    int* camino = new int[N * M];
+    int* visitados = new int[N * M];
     int x = 1;
     int y = 1;
-
-    if (camino == NULL || visitados == NULL) {
-        printf("Error de heap\n"); 
-    }
 
     for (int i = 1; i < N * M; ++i) {
         camino[i] = -1;
@@ -155,8 +151,8 @@ __global__ void encontrar_caminos(char* tablero, int selec, int* borrados) {
         atomicAdd(borrados, 1);
     }
 
-    free(camino); 
-    free(visitados);
+    delete[] camino; 
+    delete[] visitados; 
 }
 
 /*
