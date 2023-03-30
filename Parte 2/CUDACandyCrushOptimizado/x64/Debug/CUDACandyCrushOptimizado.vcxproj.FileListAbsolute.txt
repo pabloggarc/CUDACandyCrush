@@ -1,1 +1,2 @@
 D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 2.1\CUDACandyCrushOptimizado\x64\Debug\CUDACandyCrushOptimizado.exe
+D:\Documentos\UAH\Curso 2022 - 2023\Cuatrimestre 2\Paradigmas avanzados de programación\Laboratorio\PL1\CUDACandyCrush\Parte 2\CUDACandyCrushOptimizado\x64\Debug\CUDACandyCrushOptimizado.exe

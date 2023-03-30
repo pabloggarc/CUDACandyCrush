@@ -118,8 +118,8 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
 
         //Funcion que busque camino
 
-        int* camino = (int*)malloc(N * M * sizeof(int));
-        int* visitados = (int*)malloc(N * M * sizeof(int));
+        int* camino = new int[N * M];
+        int* visitados = new int[N * M];
 
         int x = 1;
         int y = 1;
@@ -149,7 +149,8 @@ __global__ void encontrar_caminos(char* tablero, char* new_tablero, int selec, i
             }
         }
 
-        free(visitados);
+        delete[] camino; 
+        delete[] visitados;
     }
 }
 
@@ -295,12 +296,12 @@ __global__ void bloquesEspeciales(char* tablero, char* tablero_aux, int fila, in
 
 */
 
-__global__ void contar_borrados(char* tablero, int* borrados, int M) {
+__global__ void contar_borrados(char* tablero, int* borrados, int N, int M) {
     int fila = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int id = fila * M + col;
 
-    if (tablero[id] == 'X') {
+    if (tablero[id] == 'X' && fila < N && col < M) {
         atomicAdd(borrados, 1); 
     }
 }
@@ -417,7 +418,7 @@ int main(int argc, char* argv[]) {
     calcular_dimensiones_optimas(&dim_grid, &dim_bloque); 
 
     int tam_tablero = sizeof(char) * N * M;
-    char* tablero = (char*)malloc(tam_tablero);
+    char* tablero = new char[N * M];
     int posicion = 0; //esta en host
 
 
@@ -485,7 +486,7 @@ int main(int argc, char* argv[]) {
             encontrar_caminos <<<dim_grid, dim_bloque>>> (d_tablero, d_tablero_aux, seleccionado, fila, col, N, M);
             cudaDeviceSynchronize();
 
-            contar_borrados <<<dim_grid, dim_bloque>>> (d_tablero_aux, d_X, M);
+            contar_borrados <<<dim_grid, dim_bloque>>> (d_tablero_aux, d_X, N, M);
             cudaDeviceSynchronize();
         }
         else {
@@ -537,7 +538,7 @@ int main(int argc, char* argv[]) {
     }
     printf("\nFIN DEL JUEGO, TE HAS QUEDADO SIN VIDAS");
 
-    free(tablero);
+    delete[] tablero;
     cudaFree(d_dif);
 
     return 0;
