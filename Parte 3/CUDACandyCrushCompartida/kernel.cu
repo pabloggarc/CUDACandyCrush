@@ -15,6 +15,7 @@ int M;
 int vidas = 5;
 int modo;
 int dificultad;
+int s_dim; 
 
 //Funciones auxiliares (DEVICE)
 
@@ -180,6 +181,8 @@ __global__ void recolocar_tablero(char* tablero, char* tablero_aux, int* dif, in
     __syncthreads(); 
 
     if (fila2 < N && col2 < M) {
+
+        printf("El hilo (%d, %d) accede al valor %c\n", fila2, col2, s_tablero[id_shared]); 
 
         int X_debajo = 0;
         int noX_encima = 0;
@@ -410,6 +413,7 @@ void calcular_dimensiones_optimas(dim3* grid, dim3* bloques) {
     int hilos_bloque = floor(max_hilos_SM / max_bloques_SM);
     int anchura_bloque = floor(sqrt(pow(2, ceil(log2(hilos_bloque)))));
     *bloques = dim3(anchura_bloque, anchura_bloque);
+    s_dim = anchura_bloque; 
 
     int bloques_x = ceil(M / (float)anchura_bloque);
     int bloques_y = ceil(N / (float)anchura_bloque);
@@ -542,7 +546,7 @@ int main(int argc, char* argv[]) {
 
         //Bajamos caramelos y metemos nuevos
 
-        recolocar_tablero << <dim_grid, dim_bloque, sizeof(char) * N * M>> > (d_tablero, d_tablero_aux, d_dif, N, M);
+        recolocar_tablero << <dim_grid, dim_bloque, sizeof(char) * s_dim * s_dim>> > (d_tablero, d_tablero_aux, d_dif, N, M);
         cudaDeviceSynchronize();
         
         cudaMemcpy(tablero, d_tablero_aux, sizeof(char) * N * M, cudaMemcpyDeviceToHost);

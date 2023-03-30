@@ -372,10 +372,10 @@ void mostrar_tablero(char* tablero, int n, int m) {
 //Flujo principal
 
 int main(int argc, char* argv[]) {
-    //srand(time(NULL)); //semilla para la ejecucion automatica
+    srand(time(NULL)); //semilla para la ejecucion automatica
     cargar_argumentos(argc, argv); //aqui ya que es N y M
     int tam_tablero = sizeof(char) * N * M;
-    char* tablero = (char*)malloc(tam_tablero);
+    char* tablero = new char[N * M]; 
     int posicion = 0; //esta en host
 
     for (int i = 0; i < N; i++) {
@@ -479,7 +479,7 @@ int main(int argc, char* argv[]) {
     }
     printf("\nFIN DEL JUEGO, TE HAS QUEDADO SIN VIDAS");
 
-    free(tablero);
+    delete[] tablero;
     cudaFree(d_dif);
 
     return 0;
