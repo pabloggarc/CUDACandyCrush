@@ -434,7 +434,7 @@ void calcular_dimensiones_optimas(dim3* grid, dim3* bloques) {
 //Flujo principal
 
 int main(int argc, char* argv[]) {
-    //srand(time(NULL)); //semilla para la ejecucion automatica
+    srand(time(NULL)); //semilla para la ejecucion automatica
     cargar_argumentos(argc, argv);
 
     dim3 dim_grid;
