@@ -528,10 +528,9 @@ int main(int argc, char* argv[]) {
         cudaMemcpy(tablero, d_tablero_aux, sizeof(char) * N * M, cudaMemcpyDeviceToHost);
         cudaMemcpy(&borrados, d_X, sizeof(int), cudaMemcpyDeviceToHost);
 
-        printf("Borrados: %d\n", borrados); 
 
         //Decidimos qu� pasa en funci�n de los que se han borrado
-        /*
+        
         printf("\nCaramelos eliminados: %d\n", borrados);
 
         if (borrados == 0) {
@@ -546,7 +545,7 @@ int main(int argc, char* argv[]) {
         }
         else if (borrados >= 7 & !especial_usado) {
             tablero[seleccionado] = 'R';
-        }*/
+        }
 
         mostrar_tablero(tablero, N, M);
         cudaMemcpy(d_tablero, tablero, sizeof(char) * N * M, cudaMemcpyHostToDevice);
